@@ -1,0 +1,227 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --rose: #f4a8b8;
+  --rose-light: #fdf0f3;
+  --rose-mid: #e8778f;
+  --rose-dark: #c44d6a;
+
+  --sage: #a8c5b8;
+  --sage-light: #eef5f2;
+  --sage-mid: #6fa896;
+  --sage-dark: #3d7a6b;
+
+  --sand: #e8d5b7;
+  --sand-light: #faf5ed;
+  --sand-mid: #c9a87a;
+  --sand-dark: #8a6540;
+
+  --lavender: #c5b8e8;
+  --lavender-light: #f3f0fb;
+  --lavender-mid: #9b89d4;
+  --lavender-dark: #5e4aaa;
+
+  --sky: #b8d4e8;
+  --sky-light: #eef4f9;
+  --sky-mid: #6a9fc4;
+  --sky-dark: #2d6a96;
+
+  --peach: #f4c5a8;
+  --peach-light: #fef5ef;
+  --peach-mid: #d4894a;
+  --peach-dark: #9a5520;
+
+  --cream: #faf7f2;
+  --white: #ffffff;
+  --ink: #2d2820;
+  --ink-mid: #6b6258;
+  --ink-light: #a09890;
+
+  --border: rgba(45, 40, 32, 0.10);
+  --border-mid: rgba(45, 40, 32, 0.18);
+
+  --shadow: 0 2px 16px rgba(45, 40, 32, 0.07), 0 1px 4px rgba(45, 40, 32, 0.05);
+  --shadow-md: 0 4px 24px rgba(45, 40, 32, 0.10), 0 2px 8px rgba(45, 40, 32, 0.06);
+  --shadow-lg: 0 8px 40px rgba(45, 40, 32, 0.13), 0 2px 8px rgba(45, 40, 32, 0.07);
+
+  --radius: 16px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'DM Sans', system-ui, sans-serif;
+  background: var(--cream);
+  color: var(--ink);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Scrollbar styling ─────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--rose-mid);
+  border-radius: 3px;
+  opacity: 0.5;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--rose-dark);
+}
+
+/* ── Plotly overrides ──────────────────────────────── */
+.plotly-chart .js-plotly-plot .plotly,
+.plotly-chart .js-plotly-plot .plotly .main-svg {
+  border-radius: 12px;
+}
+
+.modebar {
+  opacity: 0 !important;
+  transition: opacity 0.2s !important;
+}
+.js-plotly-plot:hover .modebar {
+  opacity: 0.6 !important;
+}
+
+/* ── Glass morphism card ───────────────────────────── */
+.glass-card {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 4px 24px rgba(45, 40, 32, 0.08),
+              0 1px 4px rgba(45, 40, 32, 0.04),
+              inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+/* ── Animated gradient border ──────────────────────── */
+@property --gradient-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes gradient-rotate {
+  to { --gradient-angle: 360deg; }
+}
+
+.gradient-border-animated {
+  position: relative;
+}
+.gradient-border-animated::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--gradient-angle),
+    var(--rose-mid),
+    var(--lavender-mid),
+    var(--sage-mid),
+    var(--rose-mid)
+  );
+  animation: gradient-rotate 4s linear infinite;
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.gradient-border-animated:hover::before {
+  opacity: 1;
+}
+
+/* ── Shimmer loading ───────────────────────────────── */
+.shimmer-bg {
+  background: linear-gradient(
+    90deg,
+    var(--rose-light) 25%,
+    #fff 50%,
+    var(--rose-light) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+/* ── Code highlight ────────────────────────────────── */
+.code-kw { color: #c5b8e8; }
+.code-fn { color: #a8c5b8; }
+.code-str { color: #f4c5a8; }
+.code-cm { color: #6b6258; font-style: italic; }
+.code-num { color: #f4a8b8; }
+
+/* ── Insights bar ──────────────────────────────────── */
+.insights-bar-scroll {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scrollbar-width: none;
+}
+.insights-bar-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── Correlation cell ──────────────────────────────── */
+.corr-cell {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 500;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  cursor: default;
+}
+.corr-cell:hover {
+  transform: scale(1.12);
+  z-index: 10;
+  position: relative;
+  box-shadow: 0 2px 12px rgba(45, 40, 32, 0.15);
+}
+
+/* ── Focus styles ──────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--rose-mid);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* ── Reduced motion ────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Notebook styling ──────────────────────────────── */
+.nb-pre {
+  font-family: 'DM Mono', 'Courier New', monospace;
+  font-size: 0.78rem;
+  color: #e8d5b7;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
