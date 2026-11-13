@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import type { AnalysisResult } from '@/types/analysis';
 
@@ -9,7 +8,7 @@ interface Props {
 }
 
 export default function CorrelationsTab({ analysis }: Props) {
-  const { numCols, corrMatrix } = analysis;
+  const { numCols, corrMatrix, corrSampleSizes } = analysis;
 
   if (numCols.length < 2) {
     return (
@@ -28,13 +27,13 @@ export default function CorrelationsTab({ analysis }: Props) {
   }
 
   return (
-    <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))' }}>
+    <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 400px), 1fr))' }}>
       {/* Heatmap */}
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ type: 'spring', stiffness: 260, damping: 28 }}
-        className="rounded-[18px] p-6 overflow-x-auto"
+        className="min-w-0 rounded-[18px] p-6"
         style={{
           background: '#ffffff',
           border: '1px solid rgba(45,40,32,0.10)',
@@ -45,9 +44,12 @@ export default function CorrelationsTab({ analysis }: Props) {
           Correlation matrix
         </div>
         <div className="text-xs mb-4" style={{ color: '#a09890' }}>
-          Pearson correlation between numeric features
+          Pearson r using pairwise-complete rows. n = rows with valid values in both features.
         </div>
-        <CorrHeatmap numCols={numCols} corrMatrix={corrMatrix} />
+        <CorrHeatmap numCols={numCols} corrMatrix={corrMatrix} corrSampleSizes={corrSampleSizes} />
+        <p className="text-xs mt-3" style={{ color: '#7a7068' }}>
+          N/A = fewer than 2 paired rows or no variation in either feature.
+        </p>
       </motion.div>
 
       {/* Top pairs */}
@@ -55,7 +57,7 @@ export default function CorrelationsTab({ analysis }: Props) {
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1, type: 'spring', stiffness: 260, damping: 28 }}
-        className="rounded-[18px] p-6"
+        className="min-w-0 rounded-[18px] p-6"
         style={{
           background: '#ffffff',
           border: '1px solid rgba(45,40,32,0.10)',
@@ -68,13 +70,14 @@ export default function CorrelationsTab({ analysis }: Props) {
         <div className="text-xs mb-4" style={{ color: '#a09890' }}>
           Strongest feature relationships
         </div>
-        <TopCorrList numCols={numCols} corrMatrix={corrMatrix} />
+        <TopCorrList numCols={numCols} corrMatrix={corrMatrix} corrSampleSizes={corrSampleSizes} />
       </motion.div>
     </div>
   );
 }
 
-function corrColor(r: number): string {
+function corrColor(r: number | null): string {
+  if (r === null) return 'rgba(45,40,32,0.07)';
   const abs = Math.abs(r);
   if (r > 0) {
     const alpha = 0.1 + abs * 0.85;
@@ -88,48 +91,60 @@ function corrColor(r: number): string {
 function CorrHeatmap({
   numCols,
   corrMatrix,
+  corrSampleSizes,
 }: {
   numCols: string[];
-  corrMatrix: Record<string, Record<string, number>>;
+  corrMatrix: AnalysisResult['corrMatrix'];
+  corrSampleSizes: AnalysisResult['corrSampleSizes'];
 }) {
   const cols = numCols.slice(0, 10); // max 10×10
 
   return (
     <div style={{ overflowX: 'auto' }}>
       <div
+        role="table"
+        aria-label="Pearson correlation matrix with paired sample sizes"
         style={{
           display: 'grid',
-          gridTemplateColumns: `80px repeat(${cols.length}, 1fr)`,
+          gridTemplateColumns: `80px repeat(${cols.length}, minmax(68px, 1fr))`,
           gap: '2px',
-          minWidth: cols.length * 48 + 80,
+          minWidth: cols.length * 70 + 80,
         }}
       >
         {/* Header row */}
-        <div />
-        {cols.map(col => (
-          <div
-            key={col}
-            className="text-center truncate"
-            style={{ fontSize: '9px', color: '#a09890', padding: '2px', fontWeight: 500 }}
-            title={col}
-          >
-            {col.length > 7 ? col.slice(0, 6) + '…' : col}
-          </div>
-        ))}
+        <div role="row" style={{ display: 'contents' }}>
+          <div role="columnheader" />
+          {cols.map(col => (
+            <div
+              key={col}
+              role="columnheader"
+              aria-label={col}
+              className="text-center truncate"
+              style={{ fontSize: '12px', color: '#7a7068', padding: '2px', fontWeight: 500 }}
+              title={col}
+            >
+              {col.length > 7 ? col.slice(0, 6) + '…' : col}
+            </div>
+          ))}
+        </div>
 
         {/* Data rows */}
         {cols.map((row, ri) => (
-          <div key={row} style={{ display: 'contents' }}>
+          <div key={row} role="row" style={{ display: 'contents' }}>
             <div
+              role="rowheader"
+              aria-label={row}
               className="flex items-center justify-end pr-2 truncate"
-              style={{ fontSize: '9px', color: '#a09890', fontWeight: 500 }}
+              style={{ fontSize: '12px', color: '#7a7068', fontWeight: 500 }}
               title={row}
             >
               {row.length > 9 ? row.slice(0, 8) + '…' : row}
             </div>
 
             {cols.map((col, ci) => {
-              const r = corrMatrix[row]?.[col] ?? 0;
+              const r = corrMatrix[row]?.[col] ?? null;
+              const n = corrSampleSizes[row][col];
+              const label = `${row} × ${col}: ${r === null ? 'N/A' : `r = ${r.toFixed(3)}`}, n = ${n} paired rows`;
 
               return (
                 <motion.div
@@ -138,22 +153,26 @@ function CorrHeatmap({
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: (ri * cols.length + ci) * 0.008 }}
                   className="corr-cell"
+                  role="cell"
+                  aria-label={label}
                   style={{
                     background: corrColor(r),
-                    color: Math.abs(r) > 0.5 ? '#ffffff' : '#2d2820',
-                    aspectRatio: '1',
-                    height: '40px',
+                    color: r !== null && Math.abs(r) > 0.7 ? '#ffffff' : '#2d2820',
+                    aspectRatio: 'auto',
+                    minHeight: '56px',
                     borderRadius: '4px',
                     display: 'flex',
+                    flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: '9px',
+                    fontSize: '12px',
                     fontWeight: 500,
                     cursor: 'default',
                   }}
-                  title={`${row} × ${col}: ${r.toFixed(3)}`}
+                  title={label}
                 >
-                  {Math.abs(r) > 0.15 ? r.toFixed(2) : ''}
+                  <span>{r === null ? 'N/A' : r.toFixed(2)}</span>
+                  <span className="font-mono">n={n}</span>
                 </motion.div>
               );
             })}
@@ -162,7 +181,7 @@ function CorrHeatmap({
       </div>
 
       {/* Legend */}
-      <div className="flex items-center gap-2 mt-4 justify-center">
+      <div className="flex flex-wrap items-center gap-2 mt-4 justify-center">
         <div
           className="w-20 h-2 rounded-full"
           style={{
@@ -182,26 +201,29 @@ function CorrHeatmap({
 function TopCorrList({
   numCols,
   corrMatrix,
+  corrSampleSizes,
 }: {
   numCols: string[];
-  corrMatrix: Record<string, Record<string, number>>;
+  corrMatrix: AnalysisResult['corrMatrix'];
+  corrSampleSizes: AnalysisResult['corrSampleSizes'];
 }) {
-  const pairs: Array<{ a: string; b: string; r: number }> = [];
+  const pairs: Array<{ a: string; b: string; r: number; n: number }> = [];
 
   numCols.forEach(c1 =>
     numCols.forEach(c2 => {
       if (c1 >= c2) return;
-      pairs.push({ a: c1, b: c2, r: corrMatrix[c1]?.[c2] ?? 0 });
+      const r = corrMatrix[c1]?.[c2];
+      if (r != null) pairs.push({ a: c1, b: c2, r, n: corrSampleSizes[c1][c2] });
     })
   );
 
   const top = pairs.sort((a, b) => Math.abs(b.r) - Math.abs(a.r)).slice(0, 8);
 
   if (!top.length) {
-    return <p className="text-sm" style={{ color: '#a09890' }}>No pairs available.</p>;
+    return <p className="text-sm" style={{ color: '#7a7068' }}>No correlations available. Each pair needs at least 2 valid rows and variation in both features.</p>;
   }
 
-  const maxAbs = Math.max(...top.map(p => Math.abs(p.r)));
+  const maxAbs = Math.max(...top.map(p => Math.abs(p.r))) || 1;
 
   return (
     <div className="flex flex-col gap-2.5">
@@ -214,7 +236,7 @@ function TopCorrList({
           className="flex flex-col gap-1"
         >
           <div className="flex justify-between items-center">
-            <span className="text-xs font-medium truncate max-w-[180px]" style={{ color: '#2d2820' }}>
+            <span className="min-w-0 text-xs font-medium break-words" style={{ color: '#2d2820', overflowWrap: 'anywhere' }}>
               {pair.a} × {pair.b}
             </span>
             <span
@@ -224,6 +246,7 @@ function TopCorrList({
               {pair.r > 0 ? '+' : ''}{pair.r.toFixed(3)}
             </span>
           </div>
+          <span className="text-xs font-mono" style={{ color: '#7a7068' }}>n = {pair.n} paired rows</span>
           <div className="h-1.5 rounded-full" style={{ background: 'rgba(45,40,32,0.07)' }}>
             <motion.div
               initial={{ width: 0 }}

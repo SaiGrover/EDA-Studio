@@ -19,8 +19,9 @@ export function calcSkewness(nums: number[], mean: number, std: number): number 
   return nums.reduce((a, v) => a + ((v - mean) / std) ** 3, 0) / n;
 }
 
-export function pearsonCorr(a: number[], b: number[]): number {
+export function pearsonCorr(a: number[], b: number[]): number | null {
   const n = a.length;
+  if (n < 2 || n !== b.length) return null;
   const ma = a.reduce((s, v) => s + v, 0) / n;
   const mb = b.reduce((s, v) => s + v, 0) / n;
   let num = 0, da = 0, db = 0;
@@ -29,7 +30,16 @@ export function pearsonCorr(a: number[], b: number[]): number {
     da += (a[i] - ma) ** 2;
     db += (b[i] - mb) ** 2;
   }
-  return da && db ? num / Math.sqrt(da * db) : 0;
+  if (!da || !db) return null;
+  const r = num / Math.sqrt(da) / Math.sqrt(db);
+  return Number.isFinite(r) ? Math.max(-1, Math.min(1, r)) : null;
+}
+
+function correlationValue(value: DataRow[string] | undefined): number | null {
+  if (value === null || value === undefined ||
+      (typeof value === 'string' && value.trim() === '')) return null;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
 }
 
 export function detectPatterns(
@@ -37,8 +47,9 @@ export function detectPatterns(
   numCols: string[],
   catCols: string[],
   rows: DataRow[],
-  corrMatrix: Record<string, Record<string, number>>,
-  n: number
+  corrMatrix: AnalysisResult['corrMatrix'],
+  n: number,
+  corrSampleSizes: AnalysisResult['corrSampleSizes']
 ): DataPattern[] {
   const patterns: DataPattern[] = [];
 
@@ -46,14 +57,14 @@ export function detectPatterns(
   numCols.forEach(c1 =>
     numCols.forEach(c2 => {
       if (c1 >= c2) return;
-      const r = corrMatrix[c1]?.[c2] ?? 0;
-      if (Math.abs(r) > 0.75) {
+      const r = corrMatrix[c1]?.[c2];
+      if (r != null && Math.abs(r) > 0.75) {
         patterns.push({
           icon: '🔗',
           type: 'correlation',
           color: 'rose',
           title: `Strong ${r > 0 ? 'positive' : 'negative'} correlation`,
-          desc: `${c1} & ${c2} are ${Math.abs(r) > 0.9 ? 'very strongly' : 'strongly'} correlated (r = ${r.toFixed(2)}).`,
+          desc: `${c1} & ${c2} are ${Math.abs(r) > 0.9 ? 'very strongly' : 'strongly'} correlated (r = ${r.toFixed(2)}, n = ${corrSampleSizes[c1][c2]} paired rows).`,
           tag: Math.abs(r) > 0.9 ? 'Very strong' : 'Strong',
         });
       }
@@ -230,20 +241,36 @@ export function analyseData(rows: DataRow[], cols: string[]): AnalysisResult {
     }
   });
 
-  const corrMatrix: Record<string, Record<string, number>> = {};
-  numCols.forEach(c1 => {
-    corrMatrix[c1] = {};
-    numCols.forEach(c2 => {
-      corrMatrix[c1][c2] = pearsonCorr(
-        rows.map(r => +(r[c1] as string)),
-        rows.map(r => +(r[c2] as string))
-      );
-    });
+  const corrMatrix: AnalysisResult['corrMatrix'] = {};
+  const corrSampleSizes: AnalysisResult['corrSampleSizes'] = {};
+  const numericValues = numCols.map(col => rows.map(row => correlationValue(row[col])));
+  numCols.forEach(col => {
+    corrMatrix[col] = {};
+    corrSampleSizes[col] = {};
+  });
+  numCols.forEach((c1, i) => {
+    for (let j = i; j < numCols.length; j++) {
+      const c2 = numCols[j];
+      const a: number[] = [];
+      const b: number[] = [];
+      // Keep values aligned by original row; missingness in other columns is irrelevant.
+      for (let row = 0; row < n; row++) {
+        const x = numericValues[i][row];
+        const y = numericValues[j][row];
+        if (x !== null && y !== null) {
+          a.push(x);
+          b.push(y);
+        }
+      }
+      const r = pearsonCorr(a, b);
+      corrMatrix[c1][c2] = corrMatrix[c2][c1] = r;
+      corrSampleSizes[c1][c2] = corrSampleSizes[c2][c1] = a.length;
+    }
   });
 
-  const patterns = detectPatterns(colInfo, numCols, catCols, rows, corrMatrix, n);
+  const patterns = detectPatterns(colInfo, numCols, catCols, rows, corrMatrix, n, corrSampleSizes);
 
-  return { n, cols, numCols, catCols, colInfo, corrMatrix, patterns };
+  return { n, cols, numCols, catCols, colInfo, corrMatrix, corrSampleSizes, patterns };
 }
 
 export function makeBins(data: number[], numBins: number): BinData[] {

@@ -153,6 +153,10 @@ List recent sessions (no query) or fetch one (`?id=xxx`).
 
 The analysis engine (`lib/analysis.ts`) is pure TypeScript with no browser dependencies — it can be imported in any Next.js Route Handler or server action to run analysis server-side.
 
+Correlations use pairwise-complete rows: each Pearson coefficient includes only original rows with finite values in both features. Missing or blank values are excluded, never filled with zero; missing values in other features do not affect a pair. The heatmap, ranked pairs, insights, and generated notebook show the paired sample size (`n`). Fewer than two paired rows or zero variance in either paired feature produces `N/A` (`null` in `corrMatrix`), with the actual count retained in `corrSampleSizes`. Undefined pairs are excluded from rankings and correlation insights.
+
+Run correlation regression tests with `npm test` and type checks with `npx tsc --noEmit`.
+
 ```ts
 import { analyseData } from '@/lib/analysis';
 
