@@ -42,7 +42,8 @@ export interface AnalysisResult {
   numCols: string[];
   catCols: string[];
   colInfo: Record<string, ColumnInfo>;
-  corrMatrix: Record<string, Record<string, number>>;
+  corrMatrix: Record<string, Record<string, number | null>>;
+  corrSampleSizes: Record<string, Record<string, number>>;
   patterns: DataPattern[];
 }
 

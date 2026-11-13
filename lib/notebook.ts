@@ -114,30 +114,49 @@ if cat_cols:
 }
 
 export function buildCorrCode(numCols: string[]) {
+  if (numCols.length < 2) return "print('Need at least 2 numeric columns for correlation analysis.')";
   const nc = numCols
     .slice(0, 10)
     .map(c => `'${c}'`)
     .join(', ');
-  return `# Correlation analysis
+  return `# Pearson correlation using pairwise-complete, finite values
 numeric_cols = [${nc}]
-corr_df = df[numeric_cols].corr()
+numeric_df = df[numeric_cols].apply(pd.to_numeric, errors='coerce').replace([np.inf, -np.inf], np.nan)
+corr_df = numeric_df.corr(method='pearson', min_periods=2)
+valid = numeric_df.notna().astype('int64')
+sample_sizes = valid.T.dot(valid)
+print('Pairwise sample sizes (n):')
+print(sample_sizes.to_string())
+print('N/A = fewer than 2 paired rows or no variation in either feature.')
+annotations = corr_df.copy().astype(object)
+for a in numeric_cols:
+    for b in numeric_cols:
+        r = corr_df.loc[a, b]
+        value = 'N/A' if pd.isna(r) else f'{r:.2f}'
+        annotations.loc[a, b] = f'{value}\\nn={sample_sizes.loc[a, b]}'
 
 fig, axes = plt.subplots(1, 2, figsize=(16, 6))
 
 # Heatmap
-mask = np.triu(np.ones_like(corr_df, dtype=bool))
+mask = np.triu(np.ones_like(corr_df, dtype=bool), k=1)
 cmap = sns.diverging_palette(340, 170, as_cmap=True)
-sns.heatmap(corr_df, mask=mask, ax=axes[0], cmap=cmap, center=0,
-            annot=True, fmt='.2f', square=True, linewidths=0.5,
+sns.heatmap(corr_df.fillna(0), mask=mask, ax=axes[0], cmap=cmap, center=0, vmin=-1, vmax=1,
+            annot=annotations, fmt='', square=True, linewidths=0.5,
             annot_kws={'size': 9})
 axes[0].set_title('Correlation Heatmap', fontsize=13)
 
 # Top correlations bar chart
-corr_pairs = corr_df.unstack()
+corr_pairs = corr_df.unstack().dropna()
 corr_pairs = corr_pairs[corr_pairs.index.get_level_values(0) < corr_pairs.index.get_level_values(1)]
 top_corr = corr_pairs.abs().sort_values(ascending=False).head(10)
 colors = ['#e8778f' if corr_pairs[i] > 0 else '#6a9fc4' for i in top_corr.index]
-top_corr.plot(kind='bar', ax=axes[1], color=colors, edgecolor='white')
+if not top_corr.empty:
+    top_corr.plot(kind='bar', ax=axes[1], color=colors, edgecolor='white')
+    axes[1].set_xticklabels([f'{a} × {b} (n={sample_sizes.loc[a, b]})' for a, b in top_corr.index],
+                           rotation=45, ha='right')
+else:
+    axes[1].text(0.5, 0.5, 'No correlations available', ha='center', va='center',
+                 transform=axes[1].transAxes)
 axes[1].set_title('Top 10 Correlations (|r|)', fontsize=13)
 axes[1].set_ylabel('|Pearson r|')
 plt.xticks(rotation=45, ha='right')
